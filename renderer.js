@@ -28,7 +28,8 @@ ipcRenderer.on('csv-columns', (event, { columns }) => {
   dropzone.style.display = 'none';
   const headerList = document.getElementById('columns');
   columns.forEach((column) => {
-    const li = document.createElement('li');
+    const li = document.createElement('div');
+    li.className = 'col-header';
     li.textContent = column;
     headerList.appendChild(li);
   });
