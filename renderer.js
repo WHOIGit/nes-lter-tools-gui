@@ -17,9 +17,20 @@ dropzone.addEventListener('drop', (event) => {
 });
 
 ipcRenderer.on('csv-success', () => {
-  alert('File processed successfully!');
 });
 
 ipcRenderer.on('csv-error', (event, { error }) => {
   alert(`An error occurred: ${error}`);
 });
+
+ipcRenderer.on('csv-columns', (event, { columns }) => {
+  console.log(columns);
+  dropzone.style.display = 'none';
+  const headerList = document.getElementById('columns');
+  columns.forEach((column) => {
+    const li = document.createElement('li');
+    li.textContent = column;
+    headerList.appendChild(li);
+  });
+});
+

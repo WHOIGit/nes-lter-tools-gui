@@ -46,7 +46,7 @@ ipcMain.on('read-csv', (event, { filePath }) => {
   // Read the first line (column headers)
   rl.once('line', (line) => {
     // check that line matches a CSV column header line using a regex
-    if (!line.match(/^[\w\s,]+$/)) {
+    if (!line.match(/^[\w\s,"]+$/)) {
       event.reply('csv-error', { error: 'Invalid CSV file.' });
       rl.close(false);
       return;
@@ -56,7 +56,12 @@ ipcMain.on('read-csv', (event, { filePath }) => {
     headers.forEach((header, index) => {
       headers[index] = header.trim();
     });
+    // now trim any double quotes
+    headers.forEach((header, index) => {
+      headers[index] = header.replace(/^"|"$/g, '');
+    });
     console.log('Column Headers:', headers);
+    event.reply('csv-columns', { columns: headers });
     rl.close(true);
   });
 
