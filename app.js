@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
+const csv = require('csv-parser');
 
 let mainWindow;
 
@@ -37,40 +38,36 @@ app.on('activate', () => {
 });
 
 ipcMain.on('read-csv', (event, { filePath }) => {
-  // Create a readline interface
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filePath),
-    crlfDelay: Infinity
-  });
+  let headersSent = false;
 
-  // Read the first line (column headers)
-  rl.once('line', (line) => {
-    // check that line matches a CSV column header line using a regex
-    if (!line.match(/^[\w\s,"]+$/)) {
-      event.reply('csv-error', { error: 'Invalid CSV file.' });
-      rl.close(false);
-      return;
-    }
-    const headers = line.split(',');
-    // trim headers to remove any leading/trailing whitespace
-    headers.forEach((header, index) => {
-      headers[index] = header.trim();
+  fs.createReadStream(filePath)
+    .pipe(csv())
+    .on('headers', (headers) => {
+      // Clean headers: trim whitespace and remove double quotes
+      const cleanedHeaders = headers.map(header => header.trim().replace(/^"|"$/g, ''));
+      console.log('Column Headers:', cleanedHeaders);
+      event.reply('csv-columns', { columns: cleanedHeaders });
+      headersSent = true;
+    })
+    .on('data', () => {
+      if (!headersSent) {
+        // If no headers were sent and data is being processed, it means the file is valid
+        // but we don't need to process further data for just reading headers
+        this.destroy(); // Stop reading more data
+      }
+    })
+    .on('end', () => {
+      if (headersSent) {
+        console.log('Finished reading column headers.');
+        event.reply('csv-success');
+      } else {
+        // If end is reached and no headers were sent, file might be empty or invalid
+        event.reply('csv-error', { error: 'Invalid or empty CSV file.' });
+      }
+    })
+    .on('error', (err) => {
+      // Handle any errors during parsing
+      console.error('Error reading CSV file:', err);
+      event.reply('csv-error', { error: 'Error reading CSV file.' });
     });
-    // now trim any double quotes
-    headers.forEach((header, index) => {
-      headers[index] = header.replace(/^"|"$/g, '');
-    });
-    console.log('Column Headers:', headers);
-    event.reply('csv-columns', { columns: headers });
-    rl.close(true);
-  });
-
-  // Close the readline interface when done
-  rl.on('close', (valid) => {
-    if (!valid) {
-      return;
-    }
-    console.log('Finished reading column headers.');
-    event.reply('csv-success');
-  });
 });
